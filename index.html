@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Challenge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #000000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .image-container {
+            margin-bottom: 30px;
+        }
+        
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #333;
+            border-radius: 10px;
+        }
+        
+        .input-container {
+            margin-top: 20px;
+        }
+        
+        input[type="text"] {
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            color: white;
+            padding: 15px 20px;
+            font-size: 18px;
+            border-radius: 8px;
+            width: 200px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            border-color: #555;
+        }
+        
+        button {
+            background-color: #2a2a2a;
+            color: white;
+            border: 2px solid #333;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #3a3a3a;
+            border-color: #555;
+        }
+        
+        .message {
+            margin-top: 20px;
+            font-size: 18px;
+            min-height: 25px;
+        }
+        
+        .error {
+            color: #ff6b6b;
+        }
+        
+        @media (max-width: 600px) {
+            input[type="text"], button {
+                display: block;
+                margin: 10px auto;
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="image-container">
+            <img src="https://i.postimg.cc/tg1SfqK8/export202507251353094300.png" alt="Password Challenge" />
+        </div>
+        
+        <div class="input-container">
+            <input type="text" id="answerInput" placeholder="Enter password" />
+            <button onclick="verifyAccess()">Submit</button>
+        </div>
+        
+        <div class="message" id="statusMessage"></div>
+    </div>
+
+    <script>
+        // 다층 암호화된 데이터 (ROT13 + Base64 + Hex + XOR)
+        const x1 = '6f726e6174652d62616b6c6176612d653065646633';
+        const x2 = 'Ym1WMGJHbG1lUzVoY0hBPQ==';
+        const x3 = ['6e', '75', '6d', '62', '65', '72'];
+        
+        // 암호화 함수들
+        function hexDec(h) {
+            return h.match(/.{1,2}/g).map(byte => String.fromCharCode(parseInt(byte, 16))).join('');
+        }
+        
+        function b64Dec(s) {
+            return atob(s);
+        }
+        
+        function rot13(s) {
+            return s.replace(/[a-zA-Z]/g, function(c) {
+                return String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
+            });
+        }
+        
+        function xorDec(s, k) {
+            let r = '';
+            for (let i = 0; i < s.length; i++) {
+                r += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+            }
+            return r;
+        }
+        
+        // 동적 키 생성
+        function genKey() {
+            const d = new Date();
+            return String(d.getDate() + d.getMonth());
+        }
+        
+        // 정답 검증 함수
+        function validateAnswer(input) {
+            const normalizedInput = input.toLowerCase().trim();
+            const targetChars = x3.map(h => hexDec(h));
+            const targetWord = targetChars.join('');
+            
+            return normalizedInput === targetWord;
+        }
+        
+        // URL 복호화 함수
+        function buildRedirectURL() {
+            const part1 = hexDec(x1);
+            const part2 = b64Dec(b64Dec(x2));
+            return 'https://' + part1 + '.' + part2;
+        }
+        
+        // 메인 검증 함수
+        function verifyAccess() {
+            const userInput = document.getElementById('answerInput').value;
+            const msgElement = document.getElementById('statusMessage');
+            
+            if (validateAnswer(userInput)) {
+                msgElement.innerHTML = '';
+                // 지연 및 리다이렉트
+                const delay = Math.floor(Math.random() * 800) + 200;
+                setTimeout(() => {
+                    const url = buildRedirectURL();
+                    window.location.href = url;
+                }, delay);
+            } else {
+                msgElement.innerHTML = '<span class="error">Incorrect password</span>';
+                setTimeout(() => {
+                    msgElement.innerHTML = '';
+                }, 2500);
+            }
+            
+            document.getElementById('answerInput').value = '';
+        }
+        
+        // 키보드 이벤트
+        document.getElementById('answerInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                verifyAccess();
+            }
+        });
+        
+        // 고급 보안 조치들
+        (function() {
+            // 개발자 도구 감지 및 차단
+            let devtools = {open: false, orientation: null};
+            const threshold = 160;
+            
+            setInterval(function() {
+                if (window.outerHeight - window.innerHeight > threshold || 
+                    window.outerWidth - window.innerWidth > threshold) {
+                    if (!devtools.open) {
+                        devtools.open = true;
+                        document.body.innerHTML = '<div style="color:red;text-align:center;margin-top:50vh;">Access Denied</div>';
+                    }
+                }
+            }, 500);
+            
+            // 키보드 단축키 차단
+            document.addEventListener('keydown', function(e) {
+                const forbidden = [
+                    'F12',
+                    'I', 'J', 'U', 'S', 'C' // Ctrl+Shift+I/J/C, Ctrl+U/S
+                ];
+                
+                if (forbidden.includes(e.key) && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                if (e.key === 'F12') {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+            
+            // 우클릭 및 선택 방지
+            ['contextmenu', 'selectstart', 'dragstart'].forEach(event => {
+                document.addEventListener(event, e => e.preventDefault());
+            });
+            
+            // 콘솔 감지
+            let lastTime = performance.now();
+            let checkInterval = setInterval(() => {
+                const currentTime = performance.now();
+                if (currentTime - lastTime > 100) {
+                    document.body.innerHTML = '<div style="color:red;text-align:center;margin-top:50vh;">Debug Detected</div>';
+                    clearInterval(checkInterval);
+                }
+                lastTime = currentTime;
+            }, 50);
+        })();
+        
+        // 추가 난독화
+        const dummy1 = 'ZmFrZURhdGE=';
+        const dummy2 = '64656275676765722064657465637465642074726965cw==';
+        const dummy3 = [1,2,3,4,5].map(x => x * Math.random());
+        
+        // 메모리 정리
+        setTimeout(() => {
+            delete window.x1;
+            delete window.x2; 
+            delete window.x3;
+        }, 1000);
+    </script>
+</body>
+</html>
